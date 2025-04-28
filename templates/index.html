@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satellite Image Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin-top: 2rem;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            border: none;
+        }
+        .card-header {
+            background-color: #006699;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 1rem;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 1rem 0;
+        }
+        .upload-area:hover {
+            border-color: #006699;
+            background-color: #f0f8ff;
+        }
+        .btn-primary {
+            background-color: #006699;
+            border-color: #006699;
+        }
+        .btn-primary:hover {
+            background-color: #004466;
+            border-color: #004466;
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #006699;
+        }
+        #results {
+            display: none;
+        }
+        .result-image {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .metrics-card {
+            height: 100%;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #006699;">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-satellite"></i> Satellite Analysis Platform
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4><i class="fas fa-cloud-upload-alt"></i> Upload Satellite Image</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="processingType" class="form-label">Select Analysis Type:</label>
+                                    <select class="form-select" id="processingType">
+                                        <option value="water_quality">Water Quality Estimation</option>
+                                        <option value="area_volume">Waterbody Area/Volume Estimation</option>
+                                        <option value="noise_removal">Noise Removal</option>
+                                    </select>
+                                </div>
+                                <div id="upload-area" class="upload-area">
+                                    <i class="fas fa-file-image feature-icon"></i>
+                                    <h5>Drag & Drop Satellite Image Here</h5>
+                                    <p>or</p>
+                                    <button class="btn btn-primary" id="browse-button">Browse Files</button>
+                                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                                </div>
+                                <div id="file-info" class="mt-3"></div>
+                                <button id="process-button" class="btn btn-primary mt-3 w-100" disabled>
+                                    <i class="fas fa-cogs"></i> Process Image
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Analysis Features</h5>
+                                        <div id="water-quality-info">
+                                            <p><i class="fas fa-tint text-primary"></i> <strong>Water Quality Estimation:</strong></p>
+                                            <ul>
+                                                <li>Turbidity measurement</li>
+                                                <li>Chlorophyll concentration</li>
+                                                <li>Water coverage percentage</li>
+                                            </ul>
+                                        </div>
+                                        <div id="area-volume-info" style="display: none;">
+                                            <p><i class="fas fa-water text-primary"></i> <strong>Area/Volume Estimation:</strong></p>
+                                            <ul>
+                                                <li>Surface area calculation (m² and km²)</li>
+                                                <li>Volume estimation (m³)</li>
+                                                <li>Waterbody outline detection</li>
+                                            </ul>
+                                        </div>
+                                        <div id="noise-removal-info" style="display: none;">
+                                            <p><i class="fas fa-filter text-primary"></i> <strong>Noise Removal:</strong></p>
+                                            <ul>
+                                                <li>Median filtering</li>
+                                                <li>Bilateral filtering</li>
+                                                <li>Non-local means denoising</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Processing image, please wait...</p>
+                </div>
+
+                <div id="results" class="card">
+                    <div class="card-header">
+                        <h4><i class="fas fa-chart-bar"></i> Analysis Results</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-7">
+                                <h5>Processed Image</h5>
+                                <img id="result-image" class="result-image" src="" alt="Processed Image">
+                                <div id="comparison-container" class="mt-3" style="display: none;">
+                                    <h5>Comparison View</h5>
+                                    <img id="comparison-image" class="result-image" src="" alt="Comparison View">
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="card metrics-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Metrics</h5>
+                                        <div id="water-quality-results" style="display: none;">
+                                            <table class="table">
+                                                <tbody>
+                                                    <tr>
+                                                        <th>Turbidity:</th>
+                                                        <td id="turbidity-value">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Chlorophyll:</th>
+                                                        <td id="chlorophyll-value">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Water Coverage:</th>
+                                                        <td id="coverage-value">-</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div id="area-volume-results" style="display: none;">
+                                            <table class="table">
+                                                <tbody>
+                                                    <tr>
+                                                        <th>Area (m²):</th>
+                                                        <td id="area-value-m2">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Area (km²):</th>
+                                                        <td id="area-value-km2">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Est. Volume (m³):</th>
+                                                        <td id="volume-value">-</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Pixel Count:</th>
+                                                        <td id="pixel-count">-</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div id="noise-removal-results" style="display: none;">
+                                            <p>Applied noise removal techniques:</p>
+                                            <ul id="techniques-list">
+                                            </ul>
+                                            <p>See the comparison image below for visual results of different filtering methods.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button id="download-button" class="btn btn-success w-100">
+                                        <i class="fas fa-download"></i> Download Processed Image
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white mt-5 py-3">
+        <div class="container text-center">
+            <p>© 2023 Satellite Analysis Platform | <a href="#" class="text-white">About</a> | <a href="#" class="text-white">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const browseButton = document.getElementById('browse-button');
+            const fileInfo = document.getElementById('file-info');
+            const processButton = document.getElementById('process-button');
+            const processingType = document.getElementById('processingType');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const resultImage = document.getElementById('result-image');
+            const comparisonContainer = document.getElementById('comparison-container');
+            const comparisonImage = document.getElementById('comparison-image');
+            const downloadButton = document.getElementById('download-button');
+            
+            // Feature info sections
+            const waterQualityInfo = document.getElementById('water-quality-info');
+            const areaVolumeInfo = document.getElementById('area-volume-info');
+            const noiseRemovalInfo = document.getElementById('noise-removal-info');
+            
+            // Results sections
+            const waterQualityResults = document.getElementById('water-quality-results');
+            const areaVolumeResults = document.getElementById('area-volume-results');
+            const noiseRemovalResults = document.getElementById('noise-removal-results');
+            
+            let selectedFile = null;
+            
+            // Handle drag and drop
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('bg-light');
+            });
+            
+            uploadArea.addEventListener('dragleave', function() {
+                uploadArea.classList.remove('bg-light');
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('bg-light');
+                
+                if (e.dataTransfer.files.length) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // Handle file selection via button
+            browseButton.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function() {
+                if (fileInput.files.length) {
+                    handleFile(fileInput.files[0]);
+                }
+            });
+            
+            // Process selected file
+            function handleFile(file) {
+                if (!file.type.match('image.*')) {
+                    fileInfo.innerHTML = '<div class="alert alert-danger">Please select an image file.</div>';
+                    processButton.disabled = true;
+                    return;
+                }
+                
+                selectedFile = file;
+                fileInfo.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> File selected: ${file.name} (${formatFileSize(file.size)})
+                    </div>
+                `;
+                processButton.disabled = false;
+            }
+            
+            // Format file size
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' bytes';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                else return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+            
+            // Switch info based on processing type
+            processingType.addEventListener('change', function() {
+                waterQualityInfo.style.display = 'none';
+                areaVolumeInfo.style.display = 'none';
+                noiseRemovalInfo.style.display = 'none';
+                
+                switch(processingType.value) {
+                    case 'water_quality':
+                        waterQualityInfo.style.display = 'block';
+                        break;
+                    case 'area_volume':
+                        areaVolumeInfo.style.display = 'block';
+                        break;
+                    case 'noise_removal':
+                        noiseRemovalInfo.style.display = 'block';
+                        break;
+                }
+            });
+            
+            // Process button click
+            processButton.addEventListener('click', function() {
+                if (!selectedFile) return;
+                
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('processing_type', processingType.value);
+                
+                // Show loading
+                loading.style.display = 'block';
+                results.style.display = 'none';
+                
+                // Send request to server
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Server error');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    // Display results
+                    displayResults(data);
+                })
+                .catch(error => {
+                    fileInfo.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                })
+                .finally(() => {
+                    loading.style.display = 'none';
+                });
+            });
+            
+            // Display results based on processing type
+            function displayResults(data) {
+                // Show results container
+                results.style.display = 'block';
+                
+                // Set processed image
+                resultImage.src = data.processed_image;
+                
+                // Hide all result sections
+                waterQualityResults.style.display = 'none';
+                areaVolumeResults.style.display = 'none';
+                noiseRemovalResults.style.display = 'none';
+                comparisonContainer.style.display = 'none';
+                
+                // Show appropriate section based on processing type
+                switch(processingType.value) {
+                    case 'water_quality':
+                        waterQualityResults.style.display = 'block';
+                        document.getElementById('turbidity-value').textContent = data.result.turbidity.toFixed(2);
+                        document.getElementById('chlorophyll-value').textContent = data.result.chlorophyll.toFixed(2);
+                        document.getElementById('coverage-value').textContent = data.result.water_coverage.toFixed(2) + '%';
+                        break;
+                        
+                    case 'area_volume':
+                        areaVolumeResults.style.display = 'block';
+                        document.getElementById('area-value-m2').textContent = data.result.water_area_sq_meters.toLocaleString() + ' m²';
+                        document.getElementById('area-value-km2').textContent = data.result.water_area_sq_km.toFixed(3) + ' km²';
+                        document.getElementById('volume-value').textContent = data.result.estimated_volume_cubic_meters.toLocaleString() + ' m³';
+                        document.getElementById('pixel-count').textContent = data.result.pixel_count.toLocaleString();
+                        break;
+                        
+                    case 'noise_removal':
+                        noiseRemovalResults.style.display = 'block';
+                        comparisonContainer.style.display = 'block';
+                        comparisonImage.src = data.result.comparison_image;
+                        
+                        // List techniques
+                        const techniquesList = document.getElementById('techniques-list');
+                        techniquesList.innerHTML = '';
+                        data.result.techniques.forEach(technique => {
+                            const li = document.createElement('li');
+                            li.textContent = technique.replace(/_/g, ' ');
+                            techniquesList.appendChild(li);
+                        });
+                        break;
+                }
+                
+                // Setup download button
+                downloadButton.onclick = function() {
+                    const link = document.createElement('a');
+                    link.href = data.processed_image;
+                    link.download = 'processed_image.jpg';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+            }
+        });
+    </script>
+</body>
+</html> 
