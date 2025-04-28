@@ -31,13 +31,35 @@ def calculate_area_volume(image_path):
     # Use blue/red ratio to enhance water detection (water reflects more blue light)
     blue_red_ratio = blue_band / (red_band + 1e-10)
     
-    # Combine multiple indicators for better water detection
-    water_mask = (ndwi > 0.1) & (blue_red_ratio > 1.5) & (blue_band > 100)
+    # Adjust for HSV color space which can better isolate water in certain conditions
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(hsv)
+    
+    # Create masks for different types of water bodies (light/dark/mid-blue)
+    # Lower NDWI threshold to catch more water bodies
+    water_mask1 = (ndwi > 0.05) & (blue_red_ratio > 1.3) & (blue_band > 80)
+    
+    # Additional mask for darker water (like some of the Great Lakes)
+    # These often have lower brightness but still high blue content proportionally
+    water_mask2 = (blue_band > red_band + 15) & (blue_band > green_band) & (v < 150) & (s > 30)
+    
+    # Combine masks
+    water_mask = water_mask1 | water_mask2
     
     # Apply morphological operations to clean up the mask
     kernel = np.ones((5, 5), np.uint8)
     water_mask = cv2.morphologyEx(water_mask.astype(np.uint8), cv2.MORPH_OPEN, kernel)
     water_mask = cv2.morphologyEx(water_mask, cv2.MORPH_CLOSE, kernel)
+    
+    # Additional closing with larger kernel to connect nearby water bodies
+    kernel_large = np.ones((9, 9), np.uint8)
+    water_mask = cv2.morphologyEx(water_mask, cv2.MORPH_CLOSE, kernel_large)
+    
+    # Remove small noise regions
+    contours, _ = cv2.findContours(water_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        if cv2.contourArea(cnt) < 100:  # Adjust threshold as needed
+            cv2.drawContours(water_mask, [cnt], 0, 0, -1)
     
     # Calculate area (in pixels)
     pixel_count = np.sum(water_mask)
