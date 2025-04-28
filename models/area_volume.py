@@ -20,14 +20,24 @@ def calculate_area_volume(image_path):
     if len(img.shape) == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     
-    # Extract water regions using NDWI (Normalized Difference Water Index)
-    # For actual satellite imagery, you would use specific bands (green and NIR)
-    green = img[:, :, 1].astype(float)
-    nir = img[:, :, 0].astype(float)  # Using red as proxy for NIR in RGB images
-    ndwi = (green - nir) / (green + nir + 1e-10)
+    # Extract water regions using a more robust method for RGB images
+    blue_band = img[:, :, 2].astype(float)
+    green_band = img[:, :, 1].astype(float)
+    red_band = img[:, :, 0].astype(float)
     
-    # Create water mask using threshold
-    water_mask = ndwi > 0.1
+    # Modified normalized difference water index (for RGB images)
+    ndwi = (green_band - red_band) / (green_band + red_band + 1e-10)
+    
+    # Use blue/red ratio to enhance water detection (water reflects more blue light)
+    blue_red_ratio = blue_band / (red_band + 1e-10)
+    
+    # Combine multiple indicators for better water detection
+    water_mask = (ndwi > 0.1) & (blue_red_ratio > 1.5) & (blue_band > 100)
+    
+    # Apply morphological operations to clean up the mask
+    kernel = np.ones((5, 5), np.uint8)
+    water_mask = cv2.morphologyEx(water_mask.astype(np.uint8), cv2.MORPH_OPEN, kernel)
+    water_mask = cv2.morphologyEx(water_mask, cv2.MORPH_CLOSE, kernel)
     
     # Calculate area (in pixels)
     pixel_count = np.sum(water_mask)
@@ -47,9 +57,10 @@ def calculate_area_volume(image_path):
     
     # Create visualization
     visualization = img.copy()
-    # Create a semi-transparent overlay
+    
+    # Create a colored overlay for water bodies
     overlay = np.zeros_like(img)
-    overlay[water_mask] = [0, 0, 255]  # Blue for water
+    overlay[water_mask == 1] = [0, 0, 255]  # Blue for water
     
     # Blend original and overlay
     alpha = 0.5
@@ -57,7 +68,7 @@ def calculate_area_volume(image_path):
     
     # Outline water bodies
     contours, _ = cv2.findContours(water_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(visualization, contours, -1, (255, 255, 0), 2)
+    cv2.drawContours(visualization, contours, -1, (0, 255, 255), 2)  # Yellow outline
     
     # Save processed image with a unique name based on the original filename
     base_name = os.path.basename(image_path)
