@@ -1,16 +1,20 @@
 import cv2
 import numpy as np
-from skimage import io, color
-import rasterio
 import matplotlib.pyplot as plt
 from PIL import Image
+import os
 
 def calculate_area_volume(image_path):
     """
     Calculate the area and estimate volume of waterbodies from satellite imagery
     """
     # Read the image
-    img = io.imread(image_path)
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Failed to load image: {image_path}")
+    
+    # Convert BGR to RGB (OpenCV loads as BGR)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
     # Convert to RGB if necessary
     if len(img.shape) == 2:
@@ -55,9 +59,14 @@ def calculate_area_volume(image_path):
     contours, _ = cv2.findContours(water_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cv2.drawContours(visualization, contours, -1, (255, 255, 0), 2)
     
-    # Save processed image
-    processed_path = image_path.replace('.', '_processed.')
-    Image.fromarray(visualization).save(processed_path)
+    # Save processed image with a unique name based on the original filename
+    base_name = os.path.basename(image_path)
+    filename, ext = os.path.splitext(base_name)
+    processed_filename = f"{filename}_processed{ext}"
+    processed_path = os.path.join(os.path.dirname(image_path), processed_filename)
+    
+    # Convert RGB to BGR for saving with OpenCV
+    cv2.imwrite(processed_path, cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR))
     
     return {
         'water_area_sq_meters': float(area_sq_meters),

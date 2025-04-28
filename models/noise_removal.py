@@ -1,14 +1,19 @@
 import cv2
 import numpy as np
-from skimage import io, restoration, filters
 from PIL import Image
+import os
 
 def remove_noise(image_path):
     """
     Remove noise from satellite imagery using various filtering techniques
     """
     # Read the image
-    img = io.imread(image_path)
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Failed to load image: {image_path}")
+    
+    # Convert BGR to RGB (OpenCV loads as BGR)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
     # Convert to grayscale for certain operations if needed
     if len(img.shape) > 2:
@@ -57,13 +62,21 @@ def remove_noise(image_path):
     cv2.putText(visualization, "Bilateral Filter", (10, h + 30), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(visualization, "NLM Denoising", (w + 10, h + 30), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
     
+    # Generate filenames based on original image
+    base_name = os.path.basename(image_path)
+    filename, ext = os.path.splitext(base_name)
+    processed_filename = f"{filename}_processed{ext}"
+    comparison_filename = f"{filename}_comparison{ext}"
+    
+    # Generate paths
+    processed_path = os.path.join(os.path.dirname(image_path), processed_filename)
+    viz_path = os.path.join(os.path.dirname(image_path), comparison_filename)
+    
     # Save processed image (use NLM as default output)
-    processed_path = image_path.replace('.', '_processed.')
-    Image.fromarray(nlm_filtered).save(processed_path)
+    cv2.imwrite(processed_path, cv2.cvtColor(nlm_filtered, cv2.COLOR_RGB2BGR))
     
     # Save visualization
-    viz_path = image_path.replace('.', '_comparison.')
-    Image.fromarray(visualization).save(viz_path)
+    cv2.imwrite(viz_path, cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR))
     
     return {
         'processed_image': processed_path,

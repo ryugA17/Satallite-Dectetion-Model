@@ -32,7 +32,7 @@ def create_test_image():
     # Save the test image
     os.makedirs('static/uploads', exist_ok=True)
     test_image_path = 'static/uploads/test_image.jpg'
-    Image.fromarray(img).save(test_image_path)
+    cv2.imwrite(test_image_path, img)
     
     return test_image_path
 

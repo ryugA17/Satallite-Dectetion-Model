@@ -1,8 +1,6 @@
-flask==2.0.1
-numpy==1.21.0
-opencv-python==4.5.3.56
-rasterio==1.2.10
-scikit-image==0.18.3
-gdal==3.3.3
-pillow==8.3.1
-matplotlib==3.4.3 
+flask>=2.0.1
+numpy>=1.20.0
+opencv-python>=4.5.0
+scikit-image>=0.18.0
+pillow>=8.0.0
+matplotlib>=3.4.0 
